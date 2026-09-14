@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resetKiroProfileArnCache } from "../src/management.js";
-import { fetchKiroUsage } from "../src/usage.js";
+import { fetchKiroCreditUsage, fetchKiroUsage } from "../src/usage.js";
 
 const creds = {
   access: "access-token",
@@ -65,6 +65,30 @@ afterEach(() => {
 });
 
 describe("fetchKiroUsage", () => {
+  it("routes usage requests to the resolved profile region", async () => {
+    const euProfileArn = "arn:aws:codewhisperer:eu-central-1:123456789012:profile/test";
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ profiles: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ profiles: [{ arn: euProfileArn }] }) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(usageResponse()) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchKiroCreditUsage({ ...creds, region: "us-east-1" });
+
+    expect(fetchMock.mock.calls[2][0]).toContain("https://management.eu-central-1.kiro.dev/Get-Usage-Limits");
+    expect(fetchMock.mock.calls[2][0]).toContain(`profileArn=${encodeURIComponent(euProfileArn)}`);
+  });
+
+  it("returns no credit usage when the raw numeric values are invalid", async () => {
+    const response = usageResponse();
+    response.usageBreakdown.currentUsageWithPrecision = Number.NaN;
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(response) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchKiroCreditUsage({ ...creds, profileArn })).resolves.toBeUndefined();
+  });
+
   it("uses the management GetUsageLimits contract", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

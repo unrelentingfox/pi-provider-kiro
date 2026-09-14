@@ -293,6 +293,17 @@ export async function resolveKiroProfileArn(auth: KiroManagementAuth, providedAr
   }
 }
 
+export async function resolveKiroProfileRegion(
+  auth: KiroManagementAuth,
+  providedArn?: string,
+): Promise<{ profileArn: string; region: string }> {
+  const profileArn = await resolveKiroProfileArn(auth, providedArn);
+  const region = isApiKey(auth.accessToken)
+    ? API_KEY_REGION
+    : (profileRegionCache.get(profileCacheKey(auth)) ?? auth.region);
+  return { profileArn, region };
+}
+
 export async function listAvailableModels(
   auth: KiroManagementAuth,
   profileArn: string,
@@ -322,15 +333,12 @@ export async function fetchKiroModelCatalog(
   auth: KiroManagementAuth,
   providedProfileArn?: string,
 ): Promise<KiroListAvailableModelsResponse> {
-  const profileArn = await resolveKiroProfileArn(auth, providedProfileArn);
+  const { profileArn, region } = await resolveKiroProfileRegion(auth, providedProfileArn);
   // Route the models query to the region where the profile actually lives — it
   // may differ from the SSO-derived region (#104), and ListAvailableModels is
   // regional to the profile too, not to the login region. An API key's profile
   // always lives in the key-issuing region, even when a pinned KIRO_PROFILE_ARN
   // skipped discovery and left no cached region behind.
-  const region = isApiKey(auth.accessToken)
-    ? API_KEY_REGION
-    : (profileRegionCache.get(profileCacheKey(auth)) ?? auth.region);
   if (region !== auth.region) {
     return listAvailableModels({ ...auth, region }, profileArn);
   }
