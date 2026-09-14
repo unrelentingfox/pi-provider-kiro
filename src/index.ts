@@ -13,6 +13,7 @@ import { getCachedModels, isCacheStale, type KiroModel, kiroModels, updateKiroMo
 import type { KiroCredentials } from "./oauth.js";
 import { loginKiro, refreshKiroToken } from "./oauth.js";
 import { streamKiro } from "./stream.js";
+import { registerKiroUsageIndicator } from "./usage-indicator.js";
 import { fetchKiroUsage } from "./usage.js";
 
 export { resolveApiRegion } from "./endpoints.js";
@@ -155,6 +156,8 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
     setExtensionContext(ctx);
   });
+
+  registerKiroUsageIndicator(pi);
 
   const credential = resolveLocalCredential();
   pi.registerProvider("kiro", {

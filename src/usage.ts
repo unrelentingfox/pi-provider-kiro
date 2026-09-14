@@ -3,7 +3,7 @@
 
 import type { OAuthCredentials } from "@earendil-works/pi-ai";
 import { resolveApiRegion } from "./endpoints.js";
-import { getUsageLimits, type KiroManagementAuth, resolveKiroProfileArn } from "./management.js";
+import { getUsageLimits, type KiroManagementAuth, resolveKiroProfileRegion } from "./management.js";
 import type { KiroCredentials } from "./oauth.js";
 
 const MANAGE_USAGE_URL = "https://app.kiro.dev/account/usage";
@@ -88,6 +88,14 @@ export interface KiroProviderUsage {
   raw?: Record<string, unknown>;
 }
 
+export type KiroUsageCredentials = Pick<OAuthCredentials, "access"> &
+  Partial<Pick<KiroCredentials, "region" | "profileArn">>;
+
+export interface KiroCreditUsage {
+  used: number;
+  limit: number;
+}
+
 function toIsoDate(value: EpochLike | undefined): string | undefined {
   if (value === undefined || value === null) return undefined;
   const date = typeof value === "number" ? new Date(value * 1000) : new Date(value);
@@ -139,16 +147,44 @@ function mapBucket(bucket: KiroUsageBreakdown, index: number): KiroProviderUsage
 }
 
 async function fetchRawUsage(auth: KiroManagementAuth, profileArn?: string): Promise<KiroGetUsageLimitsResponse> {
-  const resolvedProfileArn = await resolveKiroProfileArn(auth, profileArn);
-  return getUsageLimits<KiroGetUsageLimitsResponse>(auth, {
-    profileArn: resolvedProfileArn,
+  const resolvedProfile = await resolveKiroProfileRegion(auth, profileArn);
+  return getUsageLimits<KiroGetUsageLimitsResponse>({ ...auth, region: resolvedProfile.region }, {
+    profileArn: resolvedProfile.profileArn,
     origin: "KIRO_CLI",
     resourceType: "CREDIT",
     isEmailRequired: false,
   });
 }
 
-export async function fetchKiroUsage(credentials: OAuthCredentials): Promise<KiroProviderUsage> {
+export async function fetchKiroCreditUsage(credentials: KiroUsageCredentials): Promise<KiroCreditUsage | undefined> {
+  const auth = {
+    accessToken: credentials.access,
+    region: resolveApiRegion((credentials as KiroCredentials).region),
+  };
+  const raw = await fetchRawUsage(auth, (credentials as KiroCredentials).profileArn);
+  const bucket = raw.usageBreakdownList?.find(isCreditBucket) ?? raw.usageBreakdown;
+  if (!bucket) return undefined;
+  const used = bucket.currentUsageWithPrecision ?? bucket.currentUsage;
+  const limit = bucket.usageLimitWithPrecision ?? bucket.usageLimit;
+  if (!isNonNegativeFiniteNumber(used) || !isPositiveFiniteNumber(limit)) {
+    return undefined;
+  }
+  return { used, limit };
+}
+
+function isCreditBucket(bucket: KiroUsageBreakdown): boolean {
+  return bucket.resourceType === "CREDIT";
+}
+
+function isNonNegativeFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function isPositiveFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+export async function fetchKiroUsage(credentials: KiroUsageCredentials): Promise<KiroProviderUsage> {
   const auth = {
     accessToken: credentials.access,
     region: resolveApiRegion((credentials as KiroCredentials).region),
