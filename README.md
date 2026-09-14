@@ -75,6 +75,25 @@ Or let Kiro pick automatically:
 
 Reasoning is automatically enabled for supported models. Use `/reasoning` to adjust the thinking budget.
 
+### Usage status indicator
+
+To display the active Kiro account's credit usage in Pi's footer, enable the
+indicator in your Pi settings:
+
+```json
+{
+  "pi-provider-kiro": {
+    "usageIndicator": {
+      "enabled": true
+    }
+  }
+}
+```
+
+The indicator reads Kiro's authenticated `Get-Usage-Limits` management API. It
+only appears for Kiro models, refreshes after Kiro activity no more often than
+every five minutes, and retains its last successful value if a refresh fails.
+
 ## Retry Behavior
 
 Generic transient retries such as HTTP `429` and `5xx` are handled by `pi-coding-agent` at the session layer.
