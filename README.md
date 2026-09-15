@@ -75,27 +75,42 @@ Or let Kiro pick automatically:
 
 Reasoning is automatically enabled for supported models. Use `/reasoning` to adjust the thinking budget.
 
+### Credit status indicator
+
+To update the footer after each completed Kiro-backed response, enable the boolean setting:
+
+```json
+{
+  "pi-provider-kiro": {
+    "usageTracking": {
+      "planUsageStatusIndicator": true
+    }
+  }
+}
+```
+
+This also detects Kiro responses routed through a model alias. The footer shows `kiro credits: XX% (X/Y)`. A completed non-Kiro response clears the status. `planUsageStatusIndicator` defaults to `false`; failed usage refreshes leave the last successful value in place.
+
 ### Estimated usage
 
-Kiro reports an exact credit count for completed turns, but not a per-turn USD charge. It also currently omits the cache-read and cache-write fields modeled by its token-usage response. Both estimates are independently opt-in:
+Kiro reports credits for completed turns, but it does not report a per-turn dollar cost or cache token counts. You can estimate either value independently:
 
 ```json
 {
   "pi-provider-kiro": {
     "usageTracking": {
       "estimateDollarValue": true,
-      "estimateCacheUsage": true,
-      "estimatedCacheTimeout": 300000
+      "estimateCacheUsage": true
     }
   }
 }
 ```
 
-`estimateDollarValue` converts credits to an estimated USD-equivalent value for Pi usage dashboards. `usdPerCredit` defaults to Kiro's published add-on rate of `$0.04` per credit and may be overridden. The legacy `enabled: true` setting remains accepted as a deprecated alias for `estimateDollarValue: true`.
+Dollar-value estimation uses `$0.04` per credit and cache-read estimation uses a five-minute timeout. Set `usdPerCredit` or `estimatedCacheTimeout` in the same object to change those defaults. Enable either estimate independently if you do not want both.
 
-`estimateCacheUsage` conservatively reclassifies prompt tokens repeated from the previous successful turn in the same session as `cacheRead`. The first turn, large context reductions, idle gaps beyond `estimatedCacheTimeout`, and any response carrying real wire cache counters remain untouched. The timeout defaults to five minutes; set it to `0` to disable expiry. Estimated messages include `usage.cacheEstimated: true` so audits can distinguish estimates from provider-reported values.
+Cache estimation marks repeated prompt tokens as `cacheRead`. It skips the first turn, large context reductions, stale sessions, and responses with real cache counters. Estimated messages include `usage.cacheEstimated: true`.
 
-These values are estimates, not wire truth, invoices, or confirmed marginal charges. Credits included in a subscription may have no marginal cost, and estimated cache usage does not prove that Kiro served a backend cache hit. Tracking is disabled by default, and invalid settings fail closed for the affected estimate. Pi's HTML session export currently recomputes component costs and may therefore show `$0`; cost dashboards and summaries that read `usage.cost.total` show the dollar-value estimate.
+Both values are estimates. They may not match an invoice or actual backend cache behavior. Tracking is off by default.
 
 ## Retry Behavior
 

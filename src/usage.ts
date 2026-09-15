@@ -88,6 +88,14 @@ export interface KiroProviderUsage {
   raw?: Record<string, unknown>;
 }
 
+export type KiroUsageCredentials = Pick<OAuthCredentials, "access"> &
+  Partial<Pick<KiroCredentials, "region" | "profileArn">>;
+
+export interface KiroCreditUsage {
+  used: number;
+  limit: number;
+}
+
 function toIsoDate(value: EpochLike | undefined): string | undefined {
   if (value === undefined || value === null) return undefined;
   const date = typeof value === "number" ? new Date(value * 1000) : new Date(value);
@@ -148,6 +156,21 @@ async function fetchRawUsage(auth: KiroManagementAuth, profileArn?: string): Pro
   });
 }
 
+export async function fetchKiroCreditUsage(credentials: KiroUsageCredentials): Promise<KiroCreditUsage | undefined> {
+  const auth = {
+    accessToken: credentials.access,
+    region: resolveApiRegion(credentials.region),
+  };
+  const raw = await fetchRawUsage(auth, credentials.profileArn);
+  const bucket = raw.usageBreakdownList?.find(({ resourceType }) => resourceType === "CREDIT") ?? raw.usageBreakdown;
+  if (!bucket) return undefined;
+
+  const used = bucket.currentUsageWithPrecision ?? bucket.currentUsage;
+  const limit = bucket.usageLimitWithPrecision ?? bucket.usageLimit;
+  if (!isNonNegativeFiniteNumber(used) || !isPositiveFiniteNumber(limit)) return undefined;
+  return { used, limit };
+}
+
 export async function fetchKiroUsage(credentials: OAuthCredentials): Promise<KiroProviderUsage> {
   const auth = {
     accessToken: credentials.access,
@@ -170,4 +193,12 @@ export async function fetchKiroUsage(credentials: OAuthCredentials): Promise<Kir
     usageBuckets,
     raw: raw as Record<string, unknown>,
   };
+}
+
+function isNonNegativeFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function isPositiveFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
 }

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add an opt-in credit status footer after completed Kiro-backed responses, including responses routed through model aliases. Enable it with `usageTracking.planUsageStatusIndicator: true`.
+
+### Changed
+
+- Remove the deprecated `usageTracking.enabled` alias. Enable `usageTracking.estimateDollarValue` and `usageTracking.estimateCacheUsage` independently.
+
 ### Fixed
 
 - Clear the first-token timeout timer once the race is decided. The losing `setTimeout` of the first-token `Promise.race` was never cleared, so every completed request kept a ref'd 90 s timer pending that held the Node event loop open — `pi -p` and SDK embeds sat idle for up to 90 s after the answer printed ([#154](https://github.com/mikeyobrien/pi-provider-kiro/issues/154)).

@@ -52,14 +52,6 @@ describe("Kiro usage tracking config", () => {
       expect(loadKiroUsageTracking(agentDir)).toEqual({ ...disabled, estimateDollarValue: true, usdPerCredit: 0 });
     });
 
-    it("accepts legacy enabled with a deprecation warning", () => {
-      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-      writeSettings({ "pi-provider-kiro": { usageTracking: { enabled: true } } });
-
-      expect(loadKiroUsageTracking(agentDir)).toEqual({ ...disabled, estimateDollarValue: true });
-      expect(warn).toHaveBeenCalledWith(expect.stringContaining("deprecated"));
-    });
-
     it("enables cache estimation independently", () => {
       writeSettings({ "pi-provider-kiro": { usageTracking: { estimateCacheUsage: true } } });
       expect(loadKiroUsageTracking(agentDir)).toEqual({ ...disabled, estimateCacheUsage: true });
