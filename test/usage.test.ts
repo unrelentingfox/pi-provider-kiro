@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resetKiroProfileArnCache } from "../src/management.js";
-import { fetchKiroUsage } from "../src/usage.js";
+import { fetchKiroCreditUsage, fetchKiroUsage } from "../src/usage.js";
 
 const creds = {
   access: "access-token",
@@ -65,6 +65,22 @@ afterEach(() => {
 });
 
 describe("fetchKiroUsage", () => {
+  it("extracts precise credit usage for the status indicator", async () => {
+    const response = usageResponse();
+    response.usageBreakdown.currentUsage = 12;
+    response.usageBreakdown.currentUsageWithPrecision = 12.34;
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(response),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchKiroCreditUsage({ access: creds.access, region: creds.region, profileArn })).resolves.toEqual({
+      used: 12.34,
+      limit: 50,
+    });
+  });
+
   it("uses the management GetUsageLimits contract", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

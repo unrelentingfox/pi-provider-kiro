@@ -6,15 +6,14 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 /**
- * Kiro's published add-on credit rate (https://kiro.dev/pricing/). Used as the
- * conversion default so an enabled config needs no rate at all.
+ * Kiro's published add-on credit rate (https://kiro.dev/pricing/).
  */
 export const DEFAULT_USD_PER_CREDIT = 0.04;
 
 /** Match Pi's prompt-cache TTL and Anthropic's default cache lifetime. */
 export const DEFAULT_ESTIMATED_CACHE_TIMEOUT_MS = 5 * 60 * 1000;
 
-/** Resolved estimation policy. Both estimates are independently opt-in. */
+/** Resolved estimation policy. */
 export interface KiroUsageTracking {
   estimateDollarValue: boolean;
   usdPerCredit: number;
@@ -31,7 +30,6 @@ const DISABLED: KiroUsageTracking = Object.freeze({
 
 /** `MeteringEvent.unit` values that denote credits. The service has emitted both. */
 const CREDIT_UNITS = new Set(["credit", "credits"]);
-let warnedLegacyEnabled = false;
 
 /**
  * Load estimation policy from pi's settings file.
@@ -45,15 +43,7 @@ export function loadKiroUsageTracking(agentDir = getPiAgentDir()): KiroUsageTrac
   const section = asRecord(tracking);
   if (!section) return { ...DISABLED };
 
-  const legacyEnabled = section.enabled === true;
-  if (legacyEnabled && !warnedLegacyEnabled) {
-    warnedLegacyEnabled = true;
-    console.warn(
-      "[pi-provider-kiro] usageTracking.enabled is deprecated; use usageTracking.estimateDollarValue instead.",
-    );
-  }
-
-  const estimateDollarValue = section.estimateDollarValue === true || legacyEnabled;
+  const estimateDollarValue = section.estimateDollarValue === true;
   const estimateCacheUsage = section.estimateCacheUsage === true;
   let usdPerCredit = DEFAULT_USD_PER_CREDIT;
   let estimatedCacheTimeout = DEFAULT_ESTIMATED_CACHE_TIMEOUT_MS;
